@@ -41,6 +41,7 @@ volumes: [
           usernameVariable: 'DOCKER_HUB_USER',
           passwordVariable: 'DOCKER_HUB_PASSWORD']]) {
           sh """
+            docker version
             docker login -u ${DOCKER_HUB_USER} -p ${DOCKER_HUB_PASSWORD}
             docker build -t alinvelican/my-image:${gitCommit} .
             docker push alinvelican/my-image:${gitCommit}
