@@ -1,15 +1,37 @@
 def label = "worker-${UUID.randomUUID().toString()}"
 
-podTemplate(label: label, containers: [
-  containerTemplate(name: 'maven', image: 'maven:3.5.2-jdk-8', command: 'cat', ttyEnabled: true),
-  containerTemplate(name: 'docker', image: 'docker', command: 'cat', ttyEnabled: true),
-  containerTemplate(name: 'kubectl', image: 'lachlanevenson/k8s-kubectl:v1.8.8', command: 'cat', ttyEnabled: true),
-  containerTemplate(name: 'helm', image: 'lachlanevenson/k8s-helm:latest', command: 'cat', ttyEnabled: true)
-],
-volumes: [
-  hostPathVolume(mountPath: '/home/gradle/.gradle', hostPath: '/tmp/jenkins/.gradle'),
-  hostPathVolume(mountPath: '/var/run/docker.sock', hostPath: '/var/run/docker.sock')
-]) {
+podTemplate(label: label, yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+labels:
+  component: ci
+spec:
+  serviceAccountName: cd-jenkins
+  containers:
+  - name: maven
+    image: maven:3.5.2-jdk-8
+    command:
+    - cat
+    tty: true
+  - name: docker
+    image: docker
+    command:
+    - cat
+    tty: true
+    volumeMounts:
+    - name: dockersock
+      mountPath: /var/run/docker.sock
+  - name: kubectl
+    image: gcr.io/cloud-builders/kubectl
+    command:
+    - cat
+    tty: true
+  volumes:
+  - name: dockersock
+    hostPath:
+      path: /var/run/docker.sock
+""") {
   node(label) {
     def myRepo = checkout scm
     def gitCommit = myRepo.GIT_COMMIT
@@ -38,8 +60,13 @@ volumes: [
         sh """
           echo "buildddd"
           pwd
-          mvn clean install -DskipTests
+          echo "mvn clean install -DskipTests"
           """
+      }
+    }
+    stage('Run kubectll') {
+      container('kubectl') {
+        sh "kubectl get pods"
       }
     }
     stage('Create Docker images') {

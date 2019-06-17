@@ -1,19 +1,12 @@
-def  appName = 'gceme'
-def  feSvcName = "${appName}-frontend"
+def label = "worker-${UUID.randomUUID().toString()}"
 
-pipeline {
-  agent {
-    kubernetes {
-      label 'sample-app'
-      defaultContainer 'jnlp'
-      yaml """
+podTemplate(label: label, yaml """
 apiVersion: v1
 kind: Pod
 metadata:
 labels:
   component: ci
 spec:
-  # Use service account that can deploy to all namespaces
   serviceAccountName: cd-jenkins
   containers:
   - name: maven
@@ -21,46 +14,84 @@ spec:
     command:
     - cat
     tty: true
-  - name: gcloud
-    image: gcr.io/cloud-builders/gcloud
+  - name: docker
+    image: docker
     command:
     - cat
     tty: true
+    volumeMounts:
+    - name: dockersock
+      mountPath: /var/run/docker.sock
   - name: kubectl
     image: gcr.io/cloud-builders/kubectl
     command:
     - cat
     tty: true
-"""
-}
-  }
-  stages {
+  volumes:
+  - name: dockersock
+    hostPath:
+      path: /var/run/docker.sock
+""") {
+  node(label) {
+    def myRepo = checkout scm
+    def gitCommit = myRepo.GIT_COMMIT
+    def gitBranch = myRepo.GIT_BRANCH
+    def shortGitCommit = "${gitCommit[0..10]}"
+    def previousGitCommit = sh(script: "git rev-parse ${gitCommit}~", returnStdout: true)
+ 
     stage('Test') {
-      steps {
+      try {
         container('maven') {
           sh """
-            echo "testtttttttt"
+            pwd
+            ls
+            echo "testeeeeeeeeee"
+            
+            """
+        }
+      }
+      catch (exc) {
+        println "Failed to test - ${currentBuild.fullDisplayName}"
+        throw(exc)
+      }
+    }
+    stage('Build') {
+      container('maven') {
+        sh """
+          echo "buildddd"
+          pwd
+          echo "mvn clean install -DskipTests"
           """
+      }
+    }
+    stage('Run kubectll') {
+      container('kubectl') {
+        sh "kubectl get pods"
+      }
+    }
+    stage('Create Docker images') {
+      container('docker') {
+        withCredentials([[$class: 'UsernamePasswordMultiBinding',
+          credentialsId: 'dockerhub',
+          usernameVariable: 'DOCKER_HUB_USER',
+          passwordVariable: 'DOCKER_HUB_PASSWORD']]) {
+          sh """
+            docker login -u ${DOCKER_HUB_USER} -p ${DOCKER_HUB_PASSWORD}
+            docker build -t alinvelican/liclient:${gitCommit} .
+            docker push alinvelican/liclient:${gitCommit}
+            """
         }
       }
     }
-    stage('Build and push image with Container Builder') {
-      steps {
-        container('gcloud') {
-          sh ""
-        }
+    stage('Run kubectl') {
+      container('kubectl') {
+        sh "kubectl get pods"
       }
     }
-    stage('Deploy Canary') {
-       
-      steps {
-        container('kubectl') {
-          // Change deployed image in canary to the one we just built
-          sh("kubectl get pods")
-        } 
+    stage('Run helm') {
+      container('helm') {
+        sh "helm list"
       }
     }
-   
- 
   }
 }
