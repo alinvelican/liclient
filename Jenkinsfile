@@ -37,7 +37,7 @@ spec:
   stages {
     stage('Test') {
       steps {
-        container('golang') {
+        container('maven') {
           sh """
             echo "testtttttttt"
           """
