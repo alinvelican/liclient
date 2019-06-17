@@ -24,7 +24,7 @@ volumes: [
             pwd
             ls
             echo "testeeeeeeeeee"
-            mvn test
+            
             """
         }
       }
