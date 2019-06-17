@@ -1,7 +1,7 @@
 def label = "worker-${UUID.randomUUID().toString()}"
 
 podTemplate(label: label, containers: [
-  containerTemplate(name: 'maven', image: 'maven:alpine', command: 'cat', ttyEnabled: true),
+  containerTemplate(name: 'maven', image: 'maven:3.5.2-jdk-8', command: 'cat', ttyEnabled: true),
   containerTemplate(name: 'docker', image: 'docker', command: 'cat', ttyEnabled: true),
   containerTemplate(name: 'kubectl', image: 'lachlanevenson/k8s-kubectl:v1.8.8', command: 'cat', ttyEnabled: true),
   containerTemplate(name: 'helm', image: 'lachlanevenson/k8s-helm:latest', command: 'cat', ttyEnabled: true)
@@ -33,14 +33,7 @@ volumes: [
         throw(exc)
       }
     }
-    stage('Build') {
-      container('gradle') {
-        sh """
-          echo "buildddd"
-          pwd
-          """
-      }
-    }
+    
     stage('Create Docker images') {
       container('docker') {
         withCredentials([[$class: 'UsernamePasswordMultiBinding',
@@ -49,8 +42,8 @@ volumes: [
           passwordVariable: 'DOCKER_HUB_PASSWORD']]) {
           sh """
             docker login -u ${DOCKER_HUB_USER} -p ${DOCKER_HUB_PASSWORD}
-            docker build -t namespace/my-image:${gitCommit} .
-            docker push namespace/my-image:${gitCommit}
+            docker build -t alinvelican/my-image:${gitCommit} .
+            docker push alinvelican/my-image:${gitCommit}
             """
         }
       }
