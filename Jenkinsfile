@@ -38,7 +38,7 @@ volumes: [
         sh """
           echo "buildddd"
           pwd
-          mvn clean install -DskipTests
+           
           """
       }
     }
@@ -51,16 +51,17 @@ volumes: [
           sh """
             echo "dockeererererere"
             ls
-            docker login -u ${DOCKER_HUB_USER} -p ${DOCKER_HUB_PASSWORD}
-            docker build -t alinvelican/liclient:${gitCommit} .
-            docker push alinvelican/liclient:${gitCommit}
+             
             """
         }
       }
     }
     stage('Run kubectl') {
       container('kubectl') {
-        sh "kubectl get pods"
+        sh """
+        "kubectl get namespaces"
+        "kubectl get pods"
+        """
       }
     }
     stage('Run helm') {
