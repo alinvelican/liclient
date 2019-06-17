@@ -1,70 +1,66 @@
-def label = "worker-${UUID.randomUUID().toString()}"
+def  appName = 'gceme'
+def  feSvcName = "${appName}-frontend"
 
-podTemplate(label: label, containers: [
-  containerTemplate(name: 'maven', image: 'maven:3.6.1-jdk-8', command: 'cat', ttyEnabled: true),
-  containerTemplate(name: 'docker', image: 'docker', command: 'cat', ttyEnabled: true),
-  containerTemplate(name: 'kubectl', image: 'gcr.io/cloud-builders/kubectl', command: 'cat', ttyEnabled: true),
-  containerTemplate(name: 'helm', image: 'lachlanevenson/k8s-helm:latest', command: 'cat', ttyEnabled: true)
-],
-volumes: [
-  hostPathVolume(mountPath: '/home/gradle/.gradle', hostPath: '/tmp/jenkins/.gradle'),
-  hostPathVolume(mountPath: '/var/run/docker.sock', hostPath: '/var/run/docker.sock')
-]) {
-  node(label) {
-    
-     
- 
+pipeline {
+  agent {
+    kubernetes {
+      label 'sample-app'
+      defaultContainer 'jnlp'
+      yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+labels:
+  component: ci
+spec:
+  # Use service account that can deploy to all namespaces
+  serviceAccountName: cd-jenkins
+  containers:
+  - name: maven
+    image: maven:3.5.2-jdk-8
+    command:
+    - cat
+    tty: true
+  - name: gcloud
+    image: gcr.io/cloud-builders/gcloud
+    command:
+    - cat
+    tty: true
+  - name: kubectl
+    image: gcr.io/cloud-builders/kubectl
+    command:
+    - cat
+    tty: true
+"""
+}
+  }
+  stages {
     stage('Test') {
-      try {
-        container('maven') {
+      steps {
+        container('golang') {
           sh """
-            pwd
-            ls
-            echo "testeeeeeeeeee"
-            
-            """
-        }
-      }
-      catch (exc) {
-        println "Failed to test - ${currentBuild.fullDisplayName}"
-        throw(exc)
-      }
-    }
-    stage('Build') {
-      container('maven') {
-        sh """
-          echo "buildddd"
-          pwd
-           
+            echo "testtttttttt"
           """
-      }
-    }
-    stage('Create Docker images') {
-      container('docker') {
-        withCredentials([[$class: 'UsernamePasswordMultiBinding',
-          credentialsId: 'dockerhub',
-          usernameVariable: 'DOCKER_HUB_USER',
-          passwordVariable: 'DOCKER_HUB_PASSWORD']]) {
-          sh """
-            echo "dockeererererere"
-            ls
-             
-            """
         }
       }
     }
-    stage('Run kubectl') {
-      container('kubectl') {
-        sh """
-        
-        "kubectl get pods"
-        """
+    stage('Build and push image with Container Builder') {
+      steps {
+        container('gcloud') {
+          sh ""
+        }
       }
     }
-    stage('Run helm') {
-      container('helm') {
-        sh "helm list"
+    stage('Deploy Canary') {
+       
+      steps {
+        container('kubectl') {
+          // Change deployed image in canary to the one we just built
+          sh("kubectl get pods")
+        } 
       }
     }
+   
+ 
   }
 }
