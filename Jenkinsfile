@@ -1,6 +1,6 @@
 def label = "worker-${UUID.randomUUID().toString()}"
 
-podTemplate(label: label, yaml """
+podTemplate(label: label, yaml: """
 apiVersion: v1
 kind: Pod
 metadata:
